@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' app: 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src 'self' app: blob:; connect-src 'self' app: blob: data:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: mediastream:" />
+  <title>Buddy</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <button class="orb" id="orb" title="Talk to Buddy (or say &quot;Hey Buddy&quot;)" aria-label="Start listening"><span></span></button>
+      <div>
+        <div class="brand-name">Buddy</div>
+        <div class="voice-status" id="voiceStatus">Starting…</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" data-report="daily">Daily stand-up</button>
+      <button class="btn ghost" data-report="weekly">Weekly summary</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.9 4.6-1.9-.4a7 7 0 0 1-.6 1.5l1.1 1.6a.8.8 0 0 1-.1 1l-1.4 1.4a.8.8 0 0 1-1 .1l-1.6-1.1a7 7 0 0 1-1.5.6l-.4 1.9a.8.8 0 0 1-.8.6h-2a.8.8 0 0 1-.8-.6l-.4-1.9a7 7 0 0 1-1.5-.6l-1.6 1.1a.8.8 0 0 1-1-.1L4.1 18a.8.8 0 0 1-.1-1l1.1-1.6a7 7 0 0 1-.6-1.5l-1.9-.4a.8.8 0 0 1-.6-.8v-2c0-.4.3-.7.6-.8l1.9-.4c.1-.5.3-1 .6-1.5L4 6.4a.8.8 0 0 1 .1-1l1.4-1.4a.8.8 0 0 1 1-.1l1.6 1.1c.5-.3 1-.5 1.5-.6l.4-1.9c.1-.4.4-.6.8-.6h2c.4 0 .7.3.8.6l.4 1.9c.5.1 1 .3 1.5.6l1.6-1.1a.8.8 0 0 1 1 .1L19.9 5.4c.3.3.3.7.1 1l-1.1 1.6c.3.5.5 1 .6 1.5l1.9.4c.4.1.6.4.6.8v2c0 .4-.3.7-.6.8Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Board -->
+    <section class="board" aria-label="Tasks">
+      <div class="board-tabs" id="boardTabs" role="tablist" aria-label="Board">
+        <button role="tab" data-view="tasks" aria-selected="true">Tasks <b id="tabTasks">0</b></button>
+        <button role="tab" data-view="reminders" aria-selected="false">Reminders <b id="tabReminders">0</b></button>
+      </div>
+      <div id="tasksView">
+        <div class="board-head">
+          <h1>Tasks</h1>
+          <button class="btn primary small" id="addTaskBtn">Add task</button>
+        </div>
+        <nav class="filters" id="filters" role="tablist"></nav>
+        <div class="task-list" id="taskList"></div>
+      </div>
+      <div id="remindersView" hidden>
+        <div class="board-head">
+          <h1>Reminders</h1>
+          <button class="btn primary small" id="addReminderBtn">Add reminder</button>
+        </div>
+        <nav class="filters" id="remFilters" role="tablist"></nav>
+        <div class="task-list" id="remList"></div>
+      </div>
+
+      <!-- Task detail drawer -->
+      <aside class="detail" id="detail" hidden>
+        <div class="detail-head">
+          <button class="icon-btn" id="detailBack" aria-label="Back to tasks">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15.4 5.4 9 12l6.4 6.6-1.4 1.4L6.2 12 14 4z"/></svg>
+          </button>
+          <span class="detail-id" id="detailId"></span>
+          <span class="spacer"></span>
+          <button class="btn ghost small danger" id="detailDelete">Delete</button>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+      </aside>
+    </section>
+
+    <!-- Chat -->
+    <section class="chat" aria-label="Chat with Buddy">
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <div class="listening" id="listening" hidden>
+        <div class="listening-orb"><span></span></div>
+        <div class="listening-text">
+          <div class="listening-label" id="listeningLabel">Listening…</div>
+          <div class="listening-transcript" id="listeningTranscript">Say a new task, an update, or a question.</div>
+        </div>
+        <button class="btn ghost small" id="listeningCancel">Cancel</button>
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip" data-say="What should I focus on today?">What should I focus on today?</button>
+        <button class="chip" data-say="What's due this week?">What's due this week?</button>
+        <button class="chip" data-say="What am I blocked on?">What am I blocked on?</button>
+      </div>
+      <form class="composer" id="composer" autocomplete="off">
+        <textarea id="input" rows="1" placeholder="Tell Buddy about a task, an update, or a blocker…" aria-label="Message"></textarea>
+        <button type="button" class="icon-btn mic" id="micBtn" title="Speak (Ctrl+Space)" aria-label="Speak">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/></svg>
+        </button>
+        <button type="submit" class="btn primary" id="sendBtn">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- Report modal -->
+  <div class="modal" id="reportModal" hidden>
+    <div class="modal-card report-card" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+      <div class="modal-head">
+        <div class="seg" id="reportTabs">
+          <button data-type="daily">Daily stand-up</button>
+          <button data-type="weekly">Weekly summary</button>
+        </div>
+        <span class="spacer"></span>
+        <button class="icon-btn" data-close aria-label="Close">✕</button>
+      </div>
+      <h2 class="sr-only" id="reportTitle">Manager report</h2>
+      <textarea id="reportText" spellcheck="true"></textarea>
+      <div class="modal-foot">
+        <span class="hint" id="reportNote"></span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="reportRegen">Regenerate</button>
+        <button class="btn primary" id="reportCopy">Copy report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add task modal -->
+  <div class="modal" id="addModal" hidden>
+    <form class="modal-card add-card" id="addForm" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+      <div class="modal-head"><h2 id="addTitle">Add task</h2><span class="spacer"></span><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+      <label class="field"><span>Title</span><input name="title" required placeholder="e.g. Finish vendor audit" /></label>
+      <div class="row2">
+        <label class="field"><span>Due</span><input name="due" type="datetime-local" /></label>
+        <label class="field"><span>Priority</span>
+          <select name="priority"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select>
+        </label>
+      </div>
+      <label class="field"><span>From (optional)</span><input name="assigned_by" placeholder="Who gave you this?" /></label>
+      <label class="field"><span>Details (optional)</span><textarea name="description" rows="3"></textarea></label>
+      <div class="modal-foot"><span class="spacer"></span><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Add task</button></div>
+    </form>
+  </div>
+
+  <!-- Reminder modal (add / edit any reminder) -->
+  <div class="modal" id="remModal" hidden>
+    <form class="modal-card add-card" id="remEditForm" role="dialog" aria-modal="true" aria-labelledby="remTitle">
+      <div class="modal-head"><h2 id="remTitle">Add reminder</h2><span class="spacer"></span><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+      <label class="field"><span>For a task?</span>
+        <select id="rmTask"><option value="">No, a standalone reminder</option></select>
+      </label>
+      <label class="field" id="rmTitleField"><span>Remind me to…</span><input id="rmText" placeholder="e.g. Call the vendor about the PCBA ETA" /></label>
+      <div class="row2">
+        <label class="field"><span>When</span>
+          <select id="rmMode"><option value="at">At a time</option><option value="before">Before the task is due</option></select>
+        </label>
+        <label class="field" id="rmAtField"><span>Date and time</span><input type="datetime-local" id="rmAt" /></label>
+        <label class="field" id="rmBeforeField" hidden><span>How long before</span>
+          <select id="rmBefore">
+            <option value="15">15 min</option><option value="30">30 min</option><option value="60">1 hour</option><option value="120">2 hours</option>
+            <option value="240">4 hours</option><option value="1440">1 day</option><option value="2880">2 days</option>
+          </select>
+        </label>
+      </div>
+      <div class="row2">
+        <label class="field"><span>Repeat</span>
+          <select id="rmRepeat"><option value="none">Once</option><option value="hourly">Every hour</option><option value="daily">Every day</option><option value="weekdays">Weekdays</option><option value="weekly">Every week</option></select>
+        </label>
+        <label class="check inline"><input type="checkbox" id="rmActive" checked /> On</label>
+      </div>
+      <label class="field"><span>Note (optional)</span><input id="rmNote" placeholder="Shown with the reminder" /></label>
+      <div class="quick-times" id="rmQuick">
+        <span class="hint">Quick:</span>
+        <button type="button" class="chip" data-q="30m">In 30 min</button><button type="button" class="chip" data-q="1h">In 1 hour</button>
+        <button type="button" class="chip" data-q="5pm">Today 5 pm</button><button type="button" class="chip" data-q="tom9">Tomorrow 9 am</button>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn ghost small danger" id="rmDelete" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary" id="rmSave">Save reminder</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal" id="settingsModal" hidden>
+    <form class="modal-card settings-card" id="settingsForm" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-head"><h2 id="settingsTitle">Settings</h2><span class="spacer"></span><button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+      <div class="settings-scroll">
+        <fieldset>
+          <legend>You</legend>
+          <div class="row2">
+            <label class="field"><span>Your name</span><input name="userName" placeholder="Used in reports" /></label>
+            <label class="field"><span>Manager's name</span><input name="managerName" placeholder="Reports are addressed to them" /></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>AI connections</legend>
+          <p class="hint">Sign in with an account you already have, or paste an API key. Buddy uses the main (top) one; "Make main" moves a connection to the top.</p>
+          <ul class="conn-list" id="connList"></ul>
+          <label class="check"><input type="checkbox" name="useBackups" /> If the main connection is busy, out of quota or signed out, try the others in order</label>
+          <div class="conn-add">
+            <select id="connType" aria-label="Connection type">
+              <optgroup label="Sign in with your account (no API key)">
+                <option value="chatgpt">ChatGPT account</option>
+                <option value="claude">Claude account</option>
+                <option value="google">Google account (Gemini)</option>
+              </optgroup>
+              <optgroup label="API key">
+                <option value="anthropic">Claude API key</option>
+                <option value="openai">OpenAI API key</option>
+                <option value="gemini">Gemini API key</option>
+              </optgroup>
+            </select>
+            <input type="password" id="connKey" placeholder="Paste the API key" autocomplete="off" hidden />
+            <button type="button" class="btn ghost small" id="connAddBtn">Add connection</button>
+          </div>
+          <small class="hint">Common questions ("what's due today?", "focus mode", "T-3 done") are answered instantly without any AI.</small>
+        </fieldset>
+        <fieldset>
+          <legend>Voice</legend>
+          <label class="check"><input type="checkbox" name="wakeWordEnabled" /> Listen for "Hey Buddy"</label>
+          <label class="field"><span>Microphone</span><select name="micDeviceId" id="micSelect"><option value="">Windows default</option></select></label>
+          <div class="voice-check" aria-live="polite">
+            <div class="vc-row"><b>Voice check</b><span class="hint" id="micName"></span></div>
+            <div class="meter" title="Microphone level"><i id="micLevel"></i></div>
+            <ul class="heard" id="heardList"></ul>
+          </div>
+          <label class="field"><span>Wake word sensitivity</span>
+            <select name="wakeSensitivity">
+              <option value="strict">Strict: only "Hey Buddy" (fewest false starts)</option>
+              <option value="normal">Normal</option>
+              <option value="relaxed">Relaxed: also similar-sounding phrases (fewest misses)</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" name="speakReplies" /> Read replies and reminders aloud</label>
+          <div class="row2">
+            <label class="field"><span>Voice</span><select name="voiceName" id="voiceSelect"></select></label>
+            <label class="field"><span>Speaking speed</span><input type="range" name="speechRate" min="0.7" max="1.5" step="0.05" /></label>
+          </div>
+          <button type="button" class="btn ghost small" id="testVoice">Test voice</button>
+        </fieldset>
+        <fieldset>
+          <legend>Companion</legend>
+          <label class="check"><input type="checkbox" name="companionPeek" /> Keep Buddy on screen</label>
+          <label class="field"><span>Position</span>
+            <select name="companionCorner">
+              <option value="br">Bottom right</option><option value="bl">Bottom left</option>
+              <option value="tr">Top right</option><option value="tl">Top left</option>
+            </select>
+            <small>Or just drag the character to any corner of any screen.</small>
+          </label>
+          <label class="field"><span>Character</span>
+            <select name="companionCharacter" id="charSelect">
+              <option value="pixel">Robot (built in)</option>
+              <option value="pixelRobot">Robot, classic pixel style</option>
+              <option value="man">Man (built in)</option>
+              <option value="woman">Woman (built in)</option>
+              <option value="custom">My own images</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" name="moodsEnabled" /> Moods: focused Monday, happy Friday, chilled weekend, sleepy at night</label>
+          <label class="field"><span>Focus mode length</span>
+            <select name="focusMinutes" data-num><option value="25">25 min</option><option value="50">50 min</option><option value="90">90 min</option></select>
+            <small>Say "Hey Buddy, focus mode", click the character, or use the tray menu. Check-ins and breaks pause; reminders still come through.</small>
+          </label>
+          <div class="char-pick" id="customChar" hidden>
+            <div class="char-slot"><img id="charIdle" alt="" hidden /><span class="hint" id="charIdleEmpty">No image yet</span>
+              <button type="button" class="btn ghost small" data-pose="idle">Choose standing pose…</button></div>
+            <div class="char-slot"><img id="charTalk" alt="" hidden /><span class="hint" id="charTalkEmpty">Optional</span>
+              <button type="button" class="btn ghost small" data-pose="talk">Choose talking pose…</button></div>
+            <small class="hint">Use a picture of a character on a plain background. Buddy removes the background automatically.</small>
+          </div>
+          <div class="row2">
+            <label class="field"><span>Work day starts</span><input type="time" name="workStart" /></label>
+            <label class="field"><span>Work day ends</span><input type="time" name="workEnd" /></label>
+          </div>
+          <label class="check"><input type="checkbox" name="workWeekdaysOnly" /> Work days are Monday to Friday</label>
+          <div class="row2">
+            <label class="field"><span>Focus check-in</span>
+              <select name="checkinMinutes" data-num>
+                <option value="0">Off</option><option value="45">Every 45 min</option><option value="60">Every hour</option>
+                <option value="90">Every 1.5 hours</option><option value="120">Every 2 hours</option><option value="180">Every 3 hours</option>
+              </select>
+            </label>
+            <label class="field"><span>Breaks</span>
+              <select name="breakMinutes" data-num>
+                <option value="0">Off</option><option value="30">Every 30 min</option><option value="45">Every 45 min</option>
+                <option value="60">Every hour</option><option value="90">Every 1.5 hours</option><option value="120">Every 2 hours</option>
+              </select>
+            </label>
+          </div>
+          <div class="row2">
+            <label class="field"><span>Break type</span>
+              <select name="breakKind"><option value="both">Water and stretch, alternating</option><option value="water">Water only</option><option value="stretch">Stretch only</option></select>
+            </label>
+            <label class="field"><span>Welcome back after being away</span>
+              <select name="welcomeBackMinutes" data-num><option value="0">Off</option><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="60">1 hour</option></select>
+            </label>
+          </div>
+          <div class="row2">
+            <label class="check inline"><input type="checkbox" name="wrapupEnabled" /> End-of-day wrap-up</label>
+            <label class="field"><span>Wrap-up time</span><input type="time" name="wrapupTime" /></label>
+          </div>
+          <small class="hint">Check-ins and breaks only appear during work hours while you're at your PC. Reminders always appear. Tray menu: "Quiet for 1 hour".</small>
+        </fieldset>
+        <fieldset>
+          <legend>Reminders</legend>
+          <label class="check"><input type="checkbox" name="briefingEnabled" /> Morning briefing</label>
+          <div class="row2">
+            <label class="field"><span>Briefing time</span><input type="time" name="briefingTime" /></label>
+            <label class="check inline"><input type="checkbox" name="briefingWeekdaysOnly" /> Weekdays only</label>
+          </div>
+          <label class="check"><input type="checkbox" name="dueTimeAlerts" /> Alert me when a task reaches its due time</label>
+          <label class="check"><input type="checkbox" name="chimeEnabled" /> Play a chime with reminders</label>
+        </fieldset>
+        <fieldset>
+          <legend>Windows</legend>
+          <label class="check"><input type="checkbox" name="startWithWindows" /> Start Buddy when I sign in to Windows</label>
+          <small class="hint">Shortcut: Ctrl+Alt+B shows or hides Buddy from anywhere. Closing the window keeps Buddy running in the tray (near the clock, maybe under the ^ arrow) so reminders still work.</small>
+          <div class="btn-row" style="margin-top:8px"><button type="button" class="btn ghost small danger" id="quitBtn">Quit Buddy completely</button></div>
+          <small class="hint">To uninstall: quit Buddy, then Windows Settings → Apps → Installed apps → Buddy → Uninstall.</small>
+        </fieldset>
+        <fieldset>
+          <legend>Your data</legend>
+          <p class="hint">Tasks are stored only on this PC.</p>
+          <div class="btn-row">
+            <button type="button" class="btn ghost small" id="exportBtn">Back up to file</button>
+            <button type="button" class="btn ghost small" id="importBtn">Restore from file</button>
+            <button type="button" class="btn ghost small" id="folderBtn">Open data folder</button>
+            <button type="button" class="btn ghost small danger" id="clearChatBtn">Clear chat history</button>
+          </div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><span class="hint" id="versionLabel"></span><span class="spacer"></span><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Save settings</button></div>
+    </form>
+  </div>
+
+  <div class="snackbar" id="snackbar" role="status" hidden></div>
+
+  <script src="vendor/vosk.js"></script>
+  <script src="voice.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

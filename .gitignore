@@ -1,0 +1,16 @@
+# Dependencies (npm install)
+node_modules/
+
+# Build output (npm run package / electron-builder). Installers exceed GitHub's 100 MB file limit.
+out/
+dist/*
+!dist/Buddy - Setup Guide.md
+
+# Voice model: third-party download, see BUILD.md
+assets/model/
+
+# OS / editor junk
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log

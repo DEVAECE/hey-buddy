@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' app:; style-src 'self' 'unsafe-inline'; img-src 'self' app: data:" />
+<title>Buddy companion</title>
+<style>
+  :root { --ink:#1C2733; --muted:#5B6B7B; --line:#D3DAE1; --signal:#3157D5; --critical:#C4314B; --high:#D9822B; --sunk:#F4F6F8; --ok:#1F8A5B; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none;
+    font: 13.5px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+
+  /* Character: anchored bottom-right, slides in/out horizontally */
+  #char { position: absolute; right: 18px; bottom: 4px; width: 96px; height: 120px; cursor: pointer; }
+  #char canvas, #char img { position: absolute; left: 0; bottom: 0; }
+  #char img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+  /* The character's own drag handles moving; stop the browser's native image drag stealing the press. */
+  #char img, #char canvas { pointer-events: none; -webkit-user-drag: none; user-select: none; }
+  #char.sleeping canvas, #char.sleeping img { filter: saturate(.75); }
+  #shadow { position: absolute; left: 14px; right: 14px; bottom: -2px; height: 8px; border-radius: 50%; background: rgba(28,39,51,.22); }
+  #zzz { position: absolute; right: -6px; top: -6px; font: 700 15px/1 "Segoe UI", sans-serif; color: var(--signal); opacity: 0; }
+  #char.sleeping #zzz { animation: zzz 2.4s ease-in-out infinite; }
+  @keyframes zzz { 0% { opacity: 0; transform: translate(0, 8px) scale(.8); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -14px) scale(1.1); } }
+
+  #badge { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); white-space: nowrap; padding: 1px 8px; border-radius: 999px;
+    background: #1C2733; color: #fff; font: 600 11.5px/1.5 "Segoe UI", sans-serif; box-shadow: 0 2px 6px rgba(28,39,51,.25); }
+
+  /* Speech bubble */
+  #bubble { position: absolute; right: 22px; bottom: 132px; width: 360px; max-width: calc(100vw - 32px);
+    background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 12px;
+    box-shadow: 0 12px 32px rgba(28,39,51,.24); transform-origin: 85% 100%; animation: pop .18s ease-out; }
+  #bubble::after { content: ""; position: absolute; right: 44px; bottom: -9px; width: 16px; height: 16px; background: #fff;
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+  @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #bubble { animation: none; } #char.sleeping #zzz { animation: none; opacity: 1; } }
+  .b-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .b-head b { flex: 1; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .b-head .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; width: 24px; height: 24px; border-radius: 6px; font-size: 13px; }
+  .b-head .x:hover { background: var(--sunk); }
+  .title { font-weight: 650; font-size: 15px; }
+  .title.p-Critical::before, .title.p-High::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .title.p-Critical::before { background: var(--critical); } .title.p-High::before { background: var(--high); }
+  .meta { color: var(--muted); font-size: 12.5px; }
+  .meta .late { color: var(--critical); }
+  .say { white-space: pre-wrap; max-height: 220px; overflow-y: auto; user-select: text; }
+  .you { color: var(--muted); font-size: 12.5px; margin-bottom: 6px; white-space: pre-wrap; }
+  .you::before { content: "You: "; font-weight: 600; }
+  .error { color: var(--critical); }
+  .tlink { border: 0; padding: 0; background: none; color: var(--signal); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  button.a { border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 5px 11px; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+  button.a:hover { background: var(--sunk); }
+  button.a.primary { background: var(--signal); border-color: var(--signal); color: #fff; }
+  button.a.primary:hover { background: #2848B8; }
+  button.a.link { border-color: transparent; color: var(--muted); font-weight: 500; }
+  .ask { display: flex; gap: 6px; margin-top: 10px; }
+  .ask textarea { flex: 1; resize: none; overflow-y: auto; scrollbar-width: thin; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font: inherit; min-height: 34px; max-height: 110px; user-select: text; }
+  .ask textarea:focus { outline: 2px solid var(--signal); outline-offset: -1px; border-color: transparent; }
+  .dots { display: inline-flex; gap: 4px; padding: 6px 0; }
+  .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: dot 1s infinite ease-in-out; }
+  .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 0%, 80%, 100% { opacity: .25; transform: none; } 40% { opacity: 1; transform: translateY(-3px); } }
+  .count { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px; background: #E6F4FF; color: #1769AA; font-size: 12px; font-weight: 600; }
+  .progress { font-size: 11.5px; color: var(--muted); }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  #confetti { position: absolute; inset: 0; pointer-events: none; }
+
+  /* Corners: the window sits in a screen corner; the character hugs that corner and the bubble opens inward. */
+  body.corner-bl #char, body.corner-tl #char { right: auto; left: 18px; }
+  body.corner-tr #char, body.corner-tl #char { bottom: auto; top: 30px; }
+  body.corner-bl #bubble, body.corner-tl #bubble { right: auto; left: 22px; transform-origin: 15% 100%; }
+  body.corner-tr #bubble, body.corner-tl #bubble { bottom: auto; top: 172px; transform-origin: 85% 0; }
+  body.corner-tl #bubble { transform-origin: 15% 0; }
+  body.corner-bl #bubble::after, body.corner-tl #bubble::after { right: auto; left: 44px; }
+  body.corner-tr #bubble::after, body.corner-tl #bubble::after { bottom: auto; top: -9px; transform: rotate(225deg); }
+  body.corner-bl #zzz, body.corner-tl #zzz { right: auto; left: -6px; }
+  #char { touch-action: none; }
+  body.dragging #char { cursor: grabbing; }
+  body.dragging #shadow { opacity: .35; transform: scale(.7); }
+</style>
+</head>
+<body>
+  <canvas id="confetti"></canvas>
+  <div id="bubble" class="hit" hidden></div>
+  <div id="char" class="hit" title="Click to talk to Buddy" role="button" aria-label="Talk to Buddy">
+    <div id="shadow"></div>
+    <canvas id="sprite" width="96" height="120"></canvas>
+    <img id="customImg" alt="" draggable="false" hidden />
+    <span id="zzz">z z</span>
+    <span id="badge" hidden></span>
+  </div>
+  <script src="sprite.js"></script>
+  <script src="companion.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "name": "buddy",
+  "version": "1.0.4",
+  "description": "Buddy - AI work companion for tasks, reminders and manager reports",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "package": "node tools/package.mjs",
+    "installer": "electron-builder --win nsis --prepackaged out/Buddy-win32-x64",
+    "test": "node --test test/backend.test.js"
+  },
+  "keywords": [],
+  "author": "Buddy",
+  "license": "MIT",
+  "dependencies": {
+    "vosk-browser": "^0.0.8"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^44.5.1"
+  },
+  "productName": "Buddy",
+  "build": {
+    "appId": "com.buddy.workcompanion",
+    "productName": "Buddy",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Buddy",
+      "artifactName": "Buddy-Setup-${version}.exe",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "uninstallDisplayName": "Buddy",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
